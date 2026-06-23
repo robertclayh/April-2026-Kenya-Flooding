@@ -106,7 +106,7 @@ function buildTopTable(rows) {
         <td>${r.admin2_name}</td>
         <td>${r.admin1_name}</td>
         <td>${formatScore(r.priority_score)}</td>
-        <td>${formatInt(r.recommended_beneficiaries)}</td>
+        <td>${formatInt(r.affected_population_proxy)}</td>
       </tr>
     `
     )
@@ -116,16 +116,18 @@ function buildTopTable(rows) {
 function buildSubareaTable(rows) {
   const tbody = document.querySelector("#subareaTable tbody");
   if (!tbody) return;
-  const top20 = rows
+  const sorted = rows
     .slice()
-    .sort((a, b) => Number(a.subarea_rank) - Number(b.subarea_rank))
+    .sort((a, b) => Number(b.local_disaster_score) - Number(a.local_disaster_score))
     .slice(0, 20);
+  
+  const ranked = sorted.map((r, i) => ({ ...r, rank: i + 1 }));
 
-  tbody.innerHTML = top20
+  tbody.innerHTML = ranked
     .map(
       (r) => `
       <tr>
-        <td>${formatInt(r.subarea_rank)}</td>
+        <td>${r.rank}</td>
         <td>${r.site_name}</td>
         <td>${r.site_type}</td>
         <td>${formatInt(r.population_near_site)}</td>
@@ -140,9 +142,8 @@ function buildSubareaTable(rows) {
 function buildNotes(summary) {
   const notes = document.getElementById("tradeoffNotes");
   const addOn = [
-    "Tradeoff: IPC and MPI are primarily available at Admin-1 or selected livelihood-zone level, so county-level poverty indicators were propagated to Admin-2 unless a specific subpopulation estimate existed.",
-    "Tradeoff: The final weighting (75% disaster, 25% poverty) prioritizes immediate flood impact under rapid-response constraints, while preserving poverty targeting intent.",
-    "Allocation method: all 5,000 slots are concentrated in the highest-priority Admin-2; populated-place locality proxies are ranked for decision support rather than automatically splitting recipients."
+    "Data note: Admin-1 poverty/IPC indicators were propagated to Admin-2 where sub-county values were unavailable.",
+    "Data note: IPC special areas were mapped as follows: Dadaab → Dadaab Admin-2; Kakuma/Kalobeyei → Turkana West Admin-2."
   ];
 
   const items = [...summary.assumptions, ...addOn];
@@ -223,8 +224,8 @@ async function buildMap(tableRows) {
   };
   homeControl.addTo(map);
 
-  homeBounds = layer.getBounds().pad(0.05);
-  map.fitBounds(homeBounds);
+  homeBounds = layer.getBounds().pad(0.02);
+  map.fitBounds(homeBounds, { maxZoom: 7 });
   addLegend(map);
 }
 
@@ -310,8 +311,8 @@ async function buildSubareaMap(subRows) {
   homeControl.addTo(map);
 
   const group = L.featureGroup([adminLayer, floodLayer, pointsLayer]);
-  homeBounds = group.getBounds().pad(0.08);
-  map.fitBounds(homeBounds);
+  homeBounds = group.getBounds().pad(0.03);
+  map.fitBounds(homeBounds, { maxZoom: 8 });
 
   buildSubareaTable(subRows);
 }
@@ -328,6 +329,7 @@ async function main() {
     r.priority_rank = Number(r.priority_rank);
     r.priority_score = Number(r.priority_score);
     r.recommended_beneficiaries = Number(r.recommended_beneficiaries);
+    r.affected_population_proxy = Number(r.affected_population_proxy);
   });
 
   subRows.forEach((r) => {

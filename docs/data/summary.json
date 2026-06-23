@@ -74,11 +74,9 @@
     }
   ],
   "assumptions": [
-    "Admin-1 poverty/IPC indicators were propagated to Admin-2 where sub-county values were unavailable.",
-    "IPC special areas were mapped as follows: Dadaab -> Dadaab Admin-2; Kakuma/Kalobeyei -> Turkana West Admin-2.",
-    "Final index weighting uses 75% disaster and 25% poverty to emphasize immediate flood impact.",
-    "Beneficiary allocation is concentrated in one area: Wajir West (Wajir) receives all 5,000 recipients.",
-    "Within the top Admin-2, locality candidates are derived from populated places and ranked by nearby population and local disaster score.",
-    "No proportional subarea recipient split is applied; decision makers can choose among top-ranked locality proxies."
+    "Index design: Final index weighting uses 75% disaster and 25% poverty to emphasize immediate flood impact under rapid-response constraints.",
+    "Allocation strategy: All 5,000 beneficiaries are concentrated in the single highest-priority Admin-2, Wajir West (Wajir).",
+    "Subarea targeting: Within the top Admin-2, locality proxies are derived from populated places and ranked by local disaster score to support decision-maker discretion.",
+    "Decision support: No automatic proportional recipient split is applied at the subarea level; decision makers select among top-ranked locality proxies."
   ]
 }

@@ -26,8 +26,13 @@
     <section class="panel">
       <h2>1) Custom Index Design</h2>
       <p>
-        The composite index is designed to capture who is likely both <strong>flood-affected</strong> and <strong>economically vulnerable</strong>.
-        Scores are normalized to a 0-1 scale before weighting.
+        The composite index combines two dimensions—<strong>Disaster Exposure</strong> and <strong>Poverty Vulnerability</strong>—to identify communities that are both flood-affected and economically vulnerable.
+        Each indicator is normalized to a 0-1 scale, weighted within its dimension, then the dimensions are combined:
+      </p>
+      <p class="formula">
+        <strong>Disaster Score</strong> = 0.50 × Flood Extent + 0.30 × CHIRPS Rainfall + 0.20 × FloodScan<br/>
+        <strong>Poverty Score</strong> = 0.60 × MPI + 0.40 × IPC Phase 3+<br/>
+        <strong>Final Priority Score</strong> = 100 × (0.75 × Disaster + 0.25 × Poverty)
       </p>
       <div class="table-wrap">
         <table id="indexComponentsTable">
@@ -42,9 +47,6 @@
           <tbody></tbody>
         </table>
       </div>
-      <p class="formula">
-        Priority Score = 100 x (0.75 x Disaster Score + 0.25 x Poverty Score)
-      </p>
     </section>
 
     <section class="panel two-col">
@@ -65,7 +67,7 @@
                 <th>Admin 2</th>
                 <th>County</th>
                 <th>Score</th>
-                <th>Beneficiaries</th>
+                <th>Affected pop (proxy)</th>
               </tr>
             </thead>
             <tbody></tbody>
