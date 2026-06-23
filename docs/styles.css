@@ -24,8 +24,8 @@ body {
 
 .hero {
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(130deg, #173828 0%, #245f45 42%, #154232 100%);
-  color: #f2fff2;
+  background: linear-gradient(130deg, #102a1f 0%, #184a35 45%, #0f3124 100%);
+  color: #ffffff;
 }
 
 .hero,
@@ -36,6 +36,7 @@ body {
 .hero .kpi__value {
   color: #ffffff !important;
   opacity: 1 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .hero__content {
@@ -49,7 +50,7 @@ body {
   font-family: "IBM Plex Mono", monospace;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.9;
+  opacity: 1;
   font-size: 0.82rem;
 }
 
@@ -63,7 +64,7 @@ h1 {
   margin: 0;
   max-width: 840px;
   font-size: 1rem;
-  opacity: 0.95;
+  opacity: 1;
 }
 
 .kpis {
@@ -74,8 +75,8 @@ h1 {
 }
 
 .kpi {
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: 12px;
   padding: 0.7rem 0.8rem;
 }
@@ -84,7 +85,7 @@ h1 {
   margin: 0;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.75rem;
-  opacity: 0.85;
+  opacity: 1;
 }
 
 .kpi__value {

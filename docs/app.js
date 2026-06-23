@@ -243,9 +243,9 @@ async function buildSubareaMap(subRows) {
   ]);
 
   const colorBySubScore = (score) => {
-    if (score >= 75) return "#991b1b";
-    if (score >= 50) return "#c2410c";
-    if (score >= 25) return "#ca8a04";
+    if (score >= 0.6) return "#7f1d1d";
+    if (score >= 0.4) return "#b91c1c";
+    if (score >= 0.25) return "#ea580c";
     return "#3f6212";
   };
 
@@ -269,7 +269,7 @@ async function buildSubareaMap(subRows) {
 
   const pointsLayer = L.geoJSON(subGeo, {
     pointToLayer: (feature, latlng) => {
-      const score = Number(feature.properties.subarea_priority_score || 0);
+      const score = Number(feature.properties.local_disaster_score || 0);
       return L.circleMarker(latlng, {
         radius: 6,
         color: "#111827",
@@ -283,7 +283,7 @@ async function buildSubareaMap(subRows) {
       l.bindPopup(
         `<strong>${p.site_name}</strong><br/>` +
           `Type: ${p.site_type}<br/>` +
-          `Rank: ${formatInt(p.subarea_rank)}<br/>` +
+          `Disaster rank color basis: ${formatScore(p.local_disaster_score)}<br/>` +
           `Nearby pop: ${formatInt(p.population_near_site)}<br/>` +
           `Flood exposure: ${formatScore(p.flood_exposure_pct)}%<br/>` +
           `CHIRPS mean: ${formatScore(p.chirps_near_site_mm)} mm<br/>` +
