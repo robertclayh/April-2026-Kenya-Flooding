@@ -28,6 +28,16 @@ body {
   color: #f2fff2;
 }
 
+.hero,
+.hero .eyebrow,
+.hero h1,
+.hero .subhead,
+.hero .kpi__label,
+.hero .kpi__value {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
 .hero__content {
   max-width: 1200px;
   margin: 0 auto;
@@ -64,8 +74,8 @@ h1 {
 }
 
 .kpi {
-  background: rgba(255, 255, 255, 0.11);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   border-radius: 12px;
   padding: 0.7rem 0.8rem;
 }
