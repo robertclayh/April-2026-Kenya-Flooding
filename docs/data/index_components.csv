@@ -1,0 +1,8 @@
+dimension,indicator,weight_within_dimension,source
+Disaster,Flood extent share,0.5,GloFAS maximum flood extent
+Disaster,CHIRPS daily precipitation (2026-04-10),0.3,CHIRPS
+Disaster,FloodScan max SFED mean,0.2,FloodScan
+Poverty,Multidimensional Poverty Index (MPI),0.6,HDX Kenya MPI
+Poverty,IPC Current Phase 3+ percent,0.4,IPC acute food insecurity
+Final Composite,Disaster dimension,0.75,Custom weighting
+Final Composite,Poverty dimension,0.25,Custom weighting
