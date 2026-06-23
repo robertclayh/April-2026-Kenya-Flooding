@@ -26,8 +26,13 @@
     <section class="panel">
       <h2>1) Custom Index Design</h2>
       <p>
-        The composite index is designed to capture who is likely both <strong>flood-affected</strong> and <strong>economically vulnerable</strong>.
-        Scores are normalized to a 0-1 scale before weighting.
+        The composite index combines two dimensions—<strong>Disaster Exposure</strong> and <strong>Poverty Vulnerability</strong>—to identify communities that are both flood-affected and economically vulnerable.
+        Each indicator is normalized to a 0-1 scale, weighted within its dimension, then the dimensions are combined:
+      </p>
+      <p class="formula">
+        <strong>Disaster Score</strong> = 0.50 × Flood Extent + 0.30 × CHIRPS Rainfall + 0.20 × FloodScan<br/>
+        <strong>Poverty Score</strong> = 0.60 × MPI + 0.40 × IPC Phase 3+<br/>
+        <strong>Final Priority Score</strong> = 100 × (0.75 × Disaster + 0.25 × Poverty)
       </p>
       <div class="table-wrap">
         <table id="indexComponentsTable">
@@ -42,16 +47,13 @@
           <tbody></tbody>
         </table>
       </div>
-      <p class="formula">
-        Priority Score = 100 x (0.60 x Disaster Score + 0.40 x Poverty Score)
-      </p>
     </section>
 
     <section class="panel two-col">
       <div>
         <h2>2) Geographic Prioritization (Admin 2)</h2>
         <p>
-          Map shows Admin-2 priority scores. Table provides rank, drivers, and proportional allocation of 5,000 emergency cash slots.
+          Map shows Admin-2 priority scores. Table provides rank, drivers, and concentration of all 5,000 emergency cash slots in the top area.
         </p>
         <div id="map" aria-label="Admin-2 prioritization map"></div>
       </div>
@@ -65,7 +67,7 @@
                 <th>Admin 2</th>
                 <th>County</th>
                 <th>Score</th>
-                <th>Beneficiaries</th>
+                <th>Affected pop (proxy)</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -79,12 +81,47 @@
       <ul class="notes" id="tradeoffNotes"></ul>
     </section>
 
+    <section class="panel two-col">
+      <div>
+        <h2>4) Focal Area Micro-Targeting (Top Admin-2)</h2>
+        <p>
+          To support implementation, this section drills into the rank-1 Admin-2 and identifies populated-place locality proxies
+          with high nearby population exposure and strong local disaster signal.
+        </p>
+        <div id="subareaMap" aria-label="Focal Admin-2 subarea targeting map"></div>
+      </div>
+      <div>
+        <h3>Top Locality Proxies in Rank-1 Admin-2</h3>
+        <div class="table-wrap table-wrap--tight">
+          <table id="subareaTable">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Site</th>
+                <th>Type</th>
+                <th>Near Pop</th>
+                <th>Local Disaster</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <section class="panel">
       <h2>Files Produced</h2>
+      <p>
+        This dashboard is static-site ready for public sharing (for example via GitHub Pages) and uses relative links to local data assets.
+      </p>
       <ul class="files">
         <li><a href="data/admin2_priority_table.csv">data/admin2_priority_table.csv</a></li>
         <li><a href="data/admin2_priority.geojson">data/admin2_priority.geojson</a></li>
         <li><a href="data/index_components.csv">data/index_components.csv</a></li>
+        <li><a href="data/worldpop_by_adm2.csv">data/worldpop_by_adm2.csv</a></li>
+        <li><a href="data/focal_subarea_priority.csv">data/focal_subarea_priority.csv</a></li>
+        <li><a href="data/focal_subarea_priority.geojson">data/focal_subarea_priority.geojson</a></li>
         <li><a href="data/summary.json">data/summary.json</a></li>
       </ul>
     </section>

@@ -6,6 +6,7 @@ import json
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import rasterio
 from rasterstats import zonal_stats
 
 
@@ -13,6 +14,9 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "Skills Test"
 OUT_DIR = BASE_DIR / "dashboard" / "data"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+SUBAREA_BUFFER_METERS = 3000
+SUBAREA_TOP_N = 20
 
 
 def normalize_name(value: str) -> str:
@@ -31,6 +35,66 @@ def minmax(series: pd.Series) -> pd.Series:
     if np.isclose(max_val, min_val):
         return pd.Series(np.zeros(len(s)), index=s.index)
     return (s - min_val) / (max_val - min_val)
+
+
+def compute_worldpop_by_admin2(admin2: gpd.GeoDataFrame, raster_path: Path) -> pd.DataFrame:
+    with rasterio.open(raster_path) as src:
+        raster_nodata = src.nodata
+
+    stats = zonal_stats(
+        admin2,
+        raster_path,
+        stats=["sum", "count"],
+        nodata=raster_nodata,
+        raster_out=True,
+    )
+
+    raw_sum = []
+    cleaned_sum = []
+    neg_count = []
+    valid_count = []
+
+    for item in stats:
+        arr = item.get("mini_raster_array")
+        if arr is None:
+            raw_sum.append(0.0)
+            cleaned_sum.append(0.0)
+            neg_count.append(0)
+            valid_count.append(0)
+            continue
+
+        data = np.asarray(arr, dtype="float64")
+        mask = np.zeros(data.shape, dtype=bool)
+
+        if np.ma.isMaskedArray(arr):
+            mask |= np.asarray(arr.mask)
+        if raster_nodata is not None and not np.isnan(raster_nodata):
+            mask |= data == raster_nodata
+        mask |= ~np.isfinite(data)
+
+        valid = data[~mask]
+        if valid.size == 0:
+            raw_sum.append(0.0)
+            cleaned_sum.append(0.0)
+            neg_count.append(0)
+            valid_count.append(0)
+            continue
+
+        raw_sum.append(float(valid.sum()))
+        neg_count.append(int((valid < 0).sum()))
+        valid_count.append(int(valid.size))
+
+        # WorldPop should not have negative people; clamp negatives to zero.
+        cleaned = np.where(valid < 0, 0.0, valid)
+        cleaned_sum.append(float(cleaned.sum()))
+
+    out = admin2[["admin2_name", "admin1_name", "admin2_pcode"]].copy()
+    out["worldpop_raster_nodata"] = raster_nodata
+    out["worldpop_raw_sum"] = raw_sum
+    out["worldpop_clean_sum"] = cleaned_sum
+    out["worldpop_negative_cell_count"] = neg_count
+    out["worldpop_valid_cell_count"] = valid_count
+    return out
 
 
 def compute_flood_extent_pct(admin2: gpd.GeoDataFrame, flood: gpd.GeoDataFrame) -> pd.Series:
@@ -62,25 +126,123 @@ def compute_flood_extent_pct(admin2: gpd.GeoDataFrame, flood: gpd.GeoDataFrame) 
     return pd.Series(flooded_ratio, index=admin2.index)
 
 
-def allocate_beneficiaries(df: pd.DataFrame, total_beneficiaries: int = 5000, top_n: int = 40) -> pd.Series:
-    allocation = pd.Series(np.zeros(len(df), dtype=int), index=df.index)
-    top_idx = df.head(top_n).index
-    weights = (df.loc[top_idx, "priority_score"] / 100.0) * df.loc[top_idx, "population_2026"]
+def build_subarea_targeting(
+    admin2: gpd.GeoDataFrame,
+    flood_extent: gpd.GeoDataFrame,
+    worldpop_path: Path,
+    chirps_path: Path,
+) -> tuple[str, str]:
+    focal = admin2.iloc[[0]].copy()
+    focal_name = str(focal.iloc[0]["admin2_name"])
+    focal_county = str(focal.iloc[0]["admin1_name"])
 
-    if np.isclose(weights.sum(), 0.0):
-        return allocation
+    places = gpd.read_file(DATA_DIR / "hotosm_ken_populated_places_osm_shp" / "populated_places_points.shp")
+    if places.crs != admin2.crs:
+        places = places.to_crs(admin2.crs)
 
-    raw = (weights / weights.sum()) * total_beneficiaries
-    floor_vals = np.floor(raw).astype(int)
-    remainder = total_beneficiaries - int(floor_vals.sum())
+    focal_geom = focal.geometry.iloc[0]
+    places = places[places.within(focal_geom)].copy()
 
-    allocation.loc[top_idx] = floor_vals
-    if remainder > 0:
-        frac = (raw - floor_vals).sort_values(ascending=False)
-        for idx in frac.index[:remainder]:
-            allocation.loc[idx] += 1
+    if places.empty:
+        fallback = gpd.GeoDataFrame(
+            {
+                "site_name": [f"{focal_name} centroid"],
+                "site_type": ["centroid_fallback"],
+                "admin2_name": [focal_name],
+                "admin1_name": [focal_county],
+                "population_near_site": [float(focal.iloc[0]["population_2026"])],
+                "flood_exposure_pct": [float(focal.iloc[0]["flood_extent_pct"])],
+                "chirps_near_site_mm": [float(focal.iloc[0]["chirps_mean_mm"])],
+                "local_disaster_score": [1.0],
+                "subarea_priority_score": [100.0],
+                "is_top_location_proxy": [1],
+            },
+            geometry=[focal.geometry.centroid.iloc[0]],
+            crs=admin2.crs,
+        )
+        fallback.to_file(OUT_DIR / "focal_subarea_priority.geojson", driver="GeoJSON")
+        fallback.drop(columns=["geometry"]).to_csv(OUT_DIR / "focal_subarea_priority.csv", index=False)
+        gpd.GeoDataFrame(focal, geometry="geometry", crs=admin2.crs).to_file(
+            OUT_DIR / "focal_adm2.geojson", driver="GeoJSON"
+        )
+        gpd.GeoDataFrame(columns=["DN", "geometry"], geometry="geometry", crs=admin2.crs).to_file(
+            OUT_DIR / "focal_flood_extent.geojson", driver="GeoJSON"
+        )
+        return focal_name, focal_county
 
-    return allocation
+    if "name" in places.columns:
+        places["site_name"] = places["name"].astype(str).replace("nan", "").str.strip()
+    else:
+        places["site_name"] = ""
+    places["site_name"] = places["site_name"].replace("", np.nan)
+    generated_names = pd.Series(
+        [f"Populated place {i}" for i in range(1, len(places) + 1)],
+        index=places.index,
+    )
+    places["site_name"] = places["site_name"].fillna(generated_names)
+    places["site_type"] = places.get("place", "unknown").fillna("unknown").astype(str)
+
+    # Build equal-area buffers for locality-level population/disaster extraction.
+    places_ll = places.to_crs(4326)
+    places_m = places_ll.to_crs(6933)
+    buffer_m = places_m.copy()
+    buffer_m["geometry"] = places_m.buffer(SUBAREA_BUFFER_METERS)
+    buffers_ll = buffer_m.to_crs(4326)
+
+    with rasterio.open(worldpop_path) as src:
+        wp_nodata = src.nodata
+
+    pop_stats = zonal_stats(buffers_ll, worldpop_path, stats=["sum"], nodata=wp_nodata)
+    pop_vals = [float(x.get("sum") or 0.0) for x in pop_stats]
+
+    flood_exposure = compute_flood_extent_pct(buffers_ll, flood_extent)
+    chirps_stats = zonal_stats(buffers_ll, chirps_path, stats=["mean"], nodata=-9999)
+    chirps_vals = [float(x.get("mean") or 0.0) for x in chirps_stats]
+
+    sub = places_ll[["site_name", "site_type", "geometry"]].copy()
+    sub["admin2_name"] = focal_name
+    sub["admin1_name"] = focal_county
+    sub["population_near_site"] = np.clip(np.array(pop_vals, dtype=float), 0.0, None)
+    sub["flood_exposure_pct"] = flood_exposure.values
+    sub["chirps_near_site_mm"] = chirps_vals
+
+    sub["flood_n"] = minmax(sub["flood_exposure_pct"])
+    sub["chirps_n"] = minmax(sub["chirps_near_site_mm"])
+    sub["local_disaster_score"] = 0.70 * sub["flood_n"] + 0.30 * sub["chirps_n"]
+    sub["targeting_weight"] = sub["local_disaster_score"] * sub["population_near_site"]
+    sub["subarea_priority_score"] = 100 * minmax(sub["targeting_weight"])
+
+    sub = sub.sort_values("subarea_priority_score", ascending=False).reset_index(drop=True)
+    sub["subarea_rank"] = np.arange(1, len(sub) + 1)
+    sub["is_top_location_proxy"] = 0
+    if len(sub) > 0:
+        sub.loc[0, "is_top_location_proxy"] = 1
+
+    # Save focal-area artifacts for dashboard map/table.
+    sub_out = sub[
+        [
+            "subarea_rank",
+            "site_name",
+            "site_type",
+            "admin2_name",
+            "admin1_name",
+            "population_near_site",
+            "flood_exposure_pct",
+            "chirps_near_site_mm",
+            "local_disaster_score",
+            "subarea_priority_score",
+            "is_top_location_proxy",
+            "geometry",
+        ]
+    ].copy()
+    sub_out.to_file(OUT_DIR / "focal_subarea_priority.geojson", driver="GeoJSON")
+    sub_out.drop(columns=["geometry"]).to_csv(OUT_DIR / "focal_subarea_priority.csv", index=False)
+
+    gpd.GeoDataFrame(focal, geometry="geometry", crs=admin2.crs).to_file(OUT_DIR / "focal_adm2.geojson", driver="GeoJSON")
+    clipped_flood = gpd.clip(flood_extent, focal.to_crs(flood_extent.crs))
+    clipped_flood.to_file(OUT_DIR / "focal_flood_extent.geojson", driver="GeoJSON")
+
+    return focal_name, focal_county
 
 
 def main() -> None:
@@ -117,10 +279,14 @@ def main() -> None:
         index=admin2.index,
     ).fillna(0.0)
 
-    admin2["population_2026"] = pd.Series(
-        [x["sum"] for x in zonal_stats(admin2, DATA_DIR / "ken_pop_2026_CN_100m_R2025A_v1.tif", stats=["sum"], nodata=-9999)],
-        index=admin2.index,
-    ).fillna(0.0)
+    worldpop_path = DATA_DIR / "ken_pop_2026_CN_100m_R2025A_v1.tif"
+    worldpop_df = compute_worldpop_by_admin2(admin2, worldpop_path)
+    admin2 = admin2.merge(
+        worldpop_df[["admin2_pcode", "worldpop_clean_sum", "worldpop_raw_sum", "worldpop_negative_cell_count"]],
+        on="admin2_pcode",
+        how="left",
+    )
+    admin2["population_2026"] = admin2["worldpop_clean_sum"].fillna(0.0)
 
     mpi = pd.read_csv(DATA_DIR / "ken_mpi.csv")
     mpi = mpi[mpi["Admin 1 Name"].notna()].copy()
@@ -189,14 +355,17 @@ def main() -> None:
         0.50 * admin2["flood_extent_n"] + 0.30 * admin2["chirps_n"] + 0.20 * admin2["floodscan_n"]
     )
     admin2["poverty_score"] = 0.60 * admin2["mpi_n"] + 0.40 * admin2["ipc_n"]
-    admin2["priority_score"] = 100 * (0.60 * admin2["disaster_score"] + 0.40 * admin2["poverty_score"])
+    admin2["priority_score"] = 100 * (0.75 * admin2["disaster_score"] + 0.25 * admin2["poverty_score"])
 
     admin2["affected_population_proxy"] = admin2["population_2026"] * admin2["disaster_score"]
 
     admin2 = admin2.sort_values("priority_score", ascending=False).reset_index(drop=True)
     admin2["priority_rank"] = np.arange(1, len(admin2) + 1)
 
-    admin2["recommended_beneficiaries"] = allocate_beneficiaries(admin2, total_beneficiaries=5000, top_n=40)
+    # Operational strategy: concentrate all 5,000 recipients in the highest-priority Admin-2.
+    admin2["recommended_beneficiaries"] = 0
+    if len(admin2) > 0:
+        admin2.loc[0, "recommended_beneficiaries"] = 5000
 
     admin2["priority_tier"] = pd.qcut(
         admin2["priority_score"],
@@ -227,6 +396,7 @@ def main() -> None:
     ]
 
     admin2[result_cols].to_csv(OUT_DIR / "admin2_priority_table.csv", index=False)
+    worldpop_df.to_csv(OUT_DIR / "worldpop_by_adm2.csv", index=False)
 
     map_gdf = admin2[result_cols + ["geometry"]].copy()
     map_gdf.to_file(OUT_DIR / "admin2_priority.geojson", driver="GeoJSON")
@@ -238,11 +408,18 @@ def main() -> None:
             {"dimension": "Disaster", "indicator": "FloodScan max SFED mean", "weight_within_dimension": 0.20, "source": "FloodScan"},
             {"dimension": "Poverty", "indicator": "Multidimensional Poverty Index (MPI)", "weight_within_dimension": 0.60, "source": "HDX Kenya MPI"},
             {"dimension": "Poverty", "indicator": "IPC Current Phase 3+ percent", "weight_within_dimension": 0.40, "source": "IPC acute food insecurity"},
-            {"dimension": "Final Composite", "indicator": "Disaster dimension", "weight_within_dimension": 0.60, "source": "Custom weighting"},
-            {"dimension": "Final Composite", "indicator": "Poverty dimension", "weight_within_dimension": 0.40, "source": "Custom weighting"},
+            {"dimension": "Final Composite", "indicator": "Disaster dimension", "weight_within_dimension": 0.75, "source": "Custom weighting"},
+            {"dimension": "Final Composite", "indicator": "Poverty dimension", "weight_within_dimension": 0.25, "source": "Custom weighting"},
         ]
     )
     index_components.to_csv(OUT_DIR / "index_components.csv", index=False)
+
+    focal_adm2_name, focal_county_name = build_subarea_targeting(
+        admin2,
+        flood_extent,
+        worldpop_path,
+        DATA_DIR / "chirps_daily_kenya_2026_04_10.tif",
+    )
 
     top10 = admin2.head(10)[["priority_rank", "admin2_name", "admin1_name", "priority_score", "recommended_beneficiaries"]]
     summary = {
@@ -250,9 +427,10 @@ def main() -> None:
         "total_recommended_beneficiaries": int(admin2["recommended_beneficiaries"].sum()),
         "top10": top10.to_dict(orient="records"),
         "assumptions": [
-            "Admin-1 poverty/IPC indicators were propagated to Admin-2 where sub-county values were unavailable.",
-            "IPC special areas were mapped as follows: Dadaab -> Dadaab Admin-2; Kakuma/Kalobeyei -> Turkana West Admin-2.",
-            "Beneficiary allocation of 5,000 is proportional to priority_score * population for top 40 Admin-2 units.",
+            "Index design: Final index weighting uses 75% disaster and 25% poverty to emphasize immediate flood impact under rapid-response constraints.",
+            f"Allocation strategy: All 5,000 beneficiaries are concentrated in the single highest-priority Admin-2, {focal_adm2_name} ({focal_county_name}).",
+            "Subarea targeting: Within the top Admin-2, locality proxies are derived from populated places and ranked by local disaster score to support decision-maker discretion.",
+            "Decision support: No automatic proportional recipient split is applied at the subarea level; decision makers select among top-ranked locality proxies.",
         ],
     }
     with open(OUT_DIR / "summary.json", "w", encoding="utf-8") as f:
@@ -263,6 +441,11 @@ def main() -> None:
         OUT_DIR / "admin2_priority_table.csv",
         OUT_DIR / "admin2_priority.geojson",
         OUT_DIR / "index_components.csv",
+        OUT_DIR / "worldpop_by_adm2.csv",
+        OUT_DIR / "focal_subarea_priority.csv",
+        OUT_DIR / "focal_subarea_priority.geojson",
+        OUT_DIR / "focal_adm2.geojson",
+        OUT_DIR / "focal_flood_extent.geojson",
         OUT_DIR / "summary.json",
     ]:
         print(" -", p)

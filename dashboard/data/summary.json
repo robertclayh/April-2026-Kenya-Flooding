@@ -6,76 +6,77 @@
       "priority_rank": 1,
       "admin2_name": "Wajir West",
       "admin1_name": "Wajir",
-      "priority_score": 69.99548029403554,
-      "recommended_beneficiaries": 238
+      "priority_score": 71.44793036069277,
+      "recommended_beneficiaries": 5000
     },
     {
       "priority_rank": 2,
       "admin2_name": "Turkana West",
       "admin1_name": "Turkana",
-      "priority_score": 63.110303870777315,
-      "recommended_beneficiaries": 381
+      "priority_score": 53.88787983847164,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 3,
       "admin2_name": "Turkana North",
       "admin1_name": "Turkana",
-      "priority_score": 53.79853565245194,
-      "recommended_beneficiaries": 466
+      "priority_score": 48.081502898898265,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 4,
-      "admin2_name": "Eldas",
-      "admin1_name": "Wajir",
-      "priority_score": 46.8031588796882,
-      "recommended_beneficiaries": 92
+      "admin2_name": "Nyakach",
+      "admin1_name": "Kisumu",
+      "priority_score": 46.7187142135966,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 5,
-      "admin2_name": "Banissa",
-      "admin1_name": "Mandera",
-      "priority_score": 44.5800159225886,
-      "recommended_beneficiaries": 58
+      "admin2_name": "Kaloleni",
+      "admin1_name": "Kilifi",
+      "priority_score": 43.71190453691565,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 6,
-      "admin2_name": "Kaloleni",
-      "admin1_name": "Kilifi",
-      "priority_score": 41.04612520541467,
-      "recommended_beneficiaries": 4
+      "admin2_name": "Eldas",
+      "admin1_name": "Wajir",
+      "priority_score": 42.4575285927586,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 7,
-      "admin2_name": "Turkana Central",
-      "admin1_name": "Turkana",
-      "priority_score": 40.518406702446356,
-      "recommended_beneficiaries": 106
+      "admin2_name": "Kajiado South",
+      "admin1_name": "Kajiado",
+      "priority_score": 40.23736150577706,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 8,
-      "admin2_name": "Nyakach",
-      "admin1_name": "Kisumu",
-      "priority_score": 40.06740028488893,
-      "recommended_beneficiaries": 2
+      "admin2_name": "Lagdera",
+      "admin1_name": "Garissa",
+      "priority_score": 37.67101040406914,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 9,
-      "admin2_name": "Lagdera",
-      "admin1_name": "Garissa",
-      "priority_score": 39.727215997116225,
-      "recommended_beneficiaries": 108
+      "admin2_name": "Banissa",
+      "admin1_name": "Mandera",
+      "priority_score": 34.32265608000862,
+      "recommended_beneficiaries": 0
     },
     {
       "priority_rank": 10,
-      "admin2_name": "Mandera West",
-      "admin1_name": "Mandera",
-      "priority_score": 39.144755281458174,
-      "recommended_beneficiaries": 86
+      "admin2_name": "Likoni",
+      "admin1_name": "Mombasa",
+      "priority_score": 33.59555825783252,
+      "recommended_beneficiaries": 0
     }
   ],
   "assumptions": [
-    "Admin-1 poverty/IPC indicators were propagated to Admin-2 where sub-county values were unavailable.",
-    "IPC special areas were mapped as follows: Dadaab -> Dadaab Admin-2; Kakuma/Kalobeyei -> Turkana West Admin-2.",
-    "Beneficiary allocation of 5,000 is proportional to priority_score * population for top 40 Admin-2 units."
+    "Index design: Final index weighting uses 75% disaster and 25% poverty to emphasize immediate flood impact under rapid-response constraints.",
+    "Allocation strategy: All 5,000 beneficiaries are concentrated in the single highest-priority Admin-2, Wajir West (Wajir).",
+    "Subarea targeting: Within the top Admin-2, locality proxies are derived from populated places and ranked by local disaster score to support decision-maker discretion.",
+    "Decision support: No automatic proportional recipient split is applied at the subarea level; decision makers select among top-ranked locality proxies."
   ]
 }

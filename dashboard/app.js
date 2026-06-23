@@ -1,10 +1,37 @@
 async function loadCsv(path) {
   const text = await fetch(path).then((r) => r.text());
-  const [header, ...rows] = text.trim().split(/\r?\n/);
-  const cols = header.split(",");
+  const raw = text.trim();
+  if (!raw) return [];
 
-  return rows.map((row) => {
-    const values = row.split(",");
+  const lines = raw.split(/\r?\n/);
+
+  function parseCsvLine(line) {
+    const out = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          cur += '"';
+          i += 1;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === "," && !inQuotes) {
+        out.push(cur);
+        cur = "";
+      } else {
+        cur += ch;
+      }
+    }
+    out.push(cur);
+    return out;
+  }
+
+  const cols = parseCsvLine(lines[0]);
+  return lines.slice(1).filter(Boolean).map((row) => {
+    const values = parseCsvLine(row);
     const obj = {};
     cols.forEach((c, i) => {
       obj[c] = values[i] ?? "";
@@ -79,7 +106,33 @@ function buildTopTable(rows) {
         <td>${r.admin2_name}</td>
         <td>${r.admin1_name}</td>
         <td>${formatScore(r.priority_score)}</td>
-        <td>${formatInt(r.recommended_beneficiaries)}</td>
+        <td>${formatInt(r.affected_population_proxy)}</td>
+      </tr>
+    `
+    )
+    .join("");
+}
+
+function buildSubareaTable(rows) {
+  const tbody = document.querySelector("#subareaTable tbody");
+  if (!tbody) return;
+  const sorted = rows
+    .slice()
+    .sort((a, b) => Number(b.local_disaster_score) - Number(a.local_disaster_score))
+    .slice(0, 20);
+  
+  const ranked = sorted.map((r, i) => ({ ...r, rank: i + 1 }));
+
+  tbody.innerHTML = ranked
+    .map(
+      (r) => `
+      <tr>
+        <td>${r.rank}</td>
+        <td>${r.site_name}</td>
+        <td>${r.site_type}</td>
+        <td>${formatInt(r.population_near_site)}</td>
+        <td>${formatScore(r.local_disaster_score)}</td>
+        <td>${Number(r.is_top_location_proxy) === 1 ? "Top proxy" : "Candidate"}</td>
       </tr>
     `
     )
@@ -89,9 +142,8 @@ function buildTopTable(rows) {
 function buildNotes(summary) {
   const notes = document.getElementById("tradeoffNotes");
   const addOn = [
-    "Tradeoff: IPC and MPI are primarily available at Admin-1 or selected livelihood-zone level, so county-level poverty indicators were propagated to Admin-2 unless a specific subpopulation estimate existed.",
-    "Tradeoff: The final weighting (60% disaster, 40% poverty) prioritizes recent shock impact under rapid-response constraints, while still preserving poverty targeting intent.",
-    "Allocation method: 5,000 slots were distributed proportionally across the top-priority Admin-2 areas using priority score x 2026 population as a proxy for likely need intensity."
+    "Data note: Admin-1 poverty/IPC indicators were propagated to Admin-2 where sub-county values were unavailable.",
+    "Data note: IPC special areas were mapped as follows: Dadaab → Dadaab Admin-2; Kakuma/Kalobeyei → Turkana West Admin-2."
   ];
 
   const items = [...summary.assumptions, ...addOn];
@@ -149,26 +201,144 @@ async function buildMap(tableRows) {
           `Priority score: ${formatScore(row.priority_score)}<br/>` +
           `Disaster score: ${formatScore(Number(row.disaster_score) * 100)}<br/>` +
           `Poverty score: ${formatScore(Number(row.poverty_score) * 100)}<br/>` +
+          `Affected pop (proxy): ${formatInt(row.affected_population_proxy)}<br/>` +
           `Recommended beneficiaries: ${formatInt(row.recommended_beneficiaries)}`
       );
     }
   }).addTo(map);
 
-  map.fitBounds(layer.getBounds());
+  const homeControl = L.control({ position: "topright" });
+  let homeBounds = null;
+  homeControl.onAdd = function () {
+    const div = L.DomUtil.create("div", "leaflet-bar");
+    const btn = L.DomUtil.create("a", "map-home-btn", div);
+    btn.href = "#";
+    btn.title = "Reset map to initial extent";
+    btn.innerText = "Home";
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(btn, "click", (e) => {
+      L.DomEvent.preventDefault(e);
+      if (homeBounds) map.fitBounds(homeBounds, { padding: [20, 20] });
+    });
+    return div;
+  };
+  homeControl.addTo(map);
+
+  homeBounds = layer.getBounds().pad(0.02);
+  map.fitBounds(homeBounds, { maxZoom: 7 });
   addLegend(map);
 }
 
+async function buildSubareaMap(subRows) {
+  const map = L.map("subareaMap", { zoomControl: true, minZoom: 6 });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  const [focalAdm2, focalFlood, subGeo] = await Promise.all([
+    fetch("data/focal_adm2.geojson").then((r) => r.json()),
+    fetch("data/focal_flood_extent.geojson").then((r) => r.json()),
+    fetch("data/focal_subarea_priority.geojson").then((r) => r.json())
+  ]);
+
+  const colorBySubScore = (score) => {
+    if (score >= 75) return "#991b1b";
+    if (score >= 50) return "#c2410c";
+    if (score >= 25) return "#ca8a04";
+    return "#3f6212";
+  };
+
+  const adminLayer = L.geoJSON(focalAdm2, {
+    style: {
+      color: "#1f2937",
+      weight: 2,
+      fillColor: "#f59e0b",
+      fillOpacity: 0.14
+    }
+  }).addTo(map);
+
+  const floodLayer = L.geoJSON(focalFlood, {
+    style: {
+      color: "#0369a1",
+      weight: 1,
+      fillColor: "#38bdf8",
+      fillOpacity: 0.35
+    }
+  }).addTo(map);
+
+  const pointsLayer = L.geoJSON(subGeo, {
+    pointToLayer: (feature, latlng) => {
+      const score = Number(feature.properties.subarea_priority_score || 0);
+      return L.circleMarker(latlng, {
+        radius: 6,
+        color: "#111827",
+        weight: 1,
+        fillColor: colorBySubScore(score),
+        fillOpacity: 0.9
+      });
+    },
+    onEachFeature: (feature, l) => {
+      const p = feature.properties;
+      l.bindPopup(
+        `<strong>${p.site_name}</strong><br/>` +
+          `Type: ${p.site_type}<br/>` +
+          `Rank: ${formatInt(p.subarea_rank)}<br/>` +
+          `Nearby pop: ${formatInt(p.population_near_site)}<br/>` +
+          `Flood exposure: ${formatScore(p.flood_exposure_pct)}%<br/>` +
+          `CHIRPS mean: ${formatScore(p.chirps_near_site_mm)} mm<br/>` +
+          `Local disaster score: ${formatScore(p.local_disaster_score)}<br/>` +
+          `Proxy status: ${Number(p.is_top_location_proxy) === 1 ? "Top recommended locality" : "Candidate locality"}`
+      );
+    }
+  }).addTo(map);
+
+  const homeControl = L.control({ position: "topright" });
+  let homeBounds = null;
+  homeControl.onAdd = function () {
+    const div = L.DomUtil.create("div", "leaflet-bar");
+    const btn = L.DomUtil.create("a", "map-home-btn", div);
+    btn.href = "#";
+    btn.title = "Reset focal map to initial extent";
+    btn.innerText = "Home";
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(btn, "click", (e) => {
+      L.DomEvent.preventDefault(e);
+      if (homeBounds) map.fitBounds(homeBounds, { padding: [20, 20] });
+    });
+    return div;
+  };
+  homeControl.addTo(map);
+
+  const group = L.featureGroup([adminLayer, floodLayer, pointsLayer]);
+  homeBounds = group.getBounds().pad(0.03);
+  map.fitBounds(homeBounds, { maxZoom: 8 });
+
+  buildSubareaTable(subRows);
+}
+
 async function main() {
-  const [table, indexComponents, summary] = await Promise.all([
+  const [table, indexComponents, summary, subRows] = await Promise.all([
     loadCsv("data/admin2_priority_table.csv"),
     loadCsv("data/index_components.csv"),
-    fetch("data/summary.json").then((r) => r.json())
+    fetch("data/summary.json").then((r) => r.json()),
+    loadCsv("data/focal_subarea_priority.csv")
   ]);
 
   table.forEach((r) => {
     r.priority_rank = Number(r.priority_rank);
     r.priority_score = Number(r.priority_score);
     r.recommended_beneficiaries = Number(r.recommended_beneficiaries);
+    r.affected_population_proxy = Number(r.affected_population_proxy);
+  });
+
+  subRows.forEach((r) => {
+    r.subarea_rank = Number(r.subarea_rank);
+    r.population_near_site = Number(r.population_near_site);
+    r.local_disaster_score = Number(r.local_disaster_score);
+    r.is_top_location_proxy = Number(r.is_top_location_proxy);
+    r.flood_exposure_pct = Number(r.flood_exposure_pct);
+    r.chirps_near_site_mm = Number(r.chirps_near_site_mm);
   });
 
   buildKpis(summary, table);
@@ -176,6 +346,7 @@ async function main() {
   buildTopTable(table);
   buildNotes(summary);
   await buildMap(table);
+  await buildSubareaMap(subRows);
 }
 
 main().catch((err) => {

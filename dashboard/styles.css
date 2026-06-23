@@ -128,6 +128,12 @@ p {
   border-radius: 10px;
 }
 
+#subareaMap {
+  height: 500px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
 .table-wrap {
   overflow: auto;
   border: 1px solid var(--line);
@@ -208,12 +214,32 @@ footer {
   vertical-align: middle;
 }
 
+.map-home-btn {
+  display: inline-block;
+  min-width: 46px;
+  text-align: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #10231a;
+  background: #f7fbf5;
+}
+
+.map-home-btn:hover {
+  background: #e8f3e3;
+  text-decoration: none;
+}
+
 @media (max-width: 960px) {
   .two-col {
     grid-template-columns: 1fr;
   }
 
   #map {
+    height: 390px;
+  }
+
+  #subareaMap {
     height: 390px;
   }
 }
