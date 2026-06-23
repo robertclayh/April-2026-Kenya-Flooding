@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kenya Flooding 2026 Targeting Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__content">
+      <p class="eyebrow">Emergency Cash Targeting | Kenya | April 2026</p>
+      <h1>Admin-2 Prioritization for 5,000 Flood-Affected People in Poverty</h1>
+      <p class="subhead">
+        A rapid targeting recommendation combining disaster severity and poverty vulnerability to support a 2-day decision timeline.
+      </p>
+      <div class="kpis" id="kpiRow"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>1) Custom Index Design</h2>
+      <p>
+        The composite index is designed to capture who is likely both <strong>flood-affected</strong> and <strong>economically vulnerable</strong>.
+        Scores are normalized to a 0-1 scale before weighting.
+      </p>
+      <div class="table-wrap">
+        <table id="indexComponentsTable">
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Indicator</th>
+              <th>Weight</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="formula">
+        Priority Score = 100 x (0.60 x Disaster Score + 0.40 x Poverty Score)
+      </p>
+    </section>
+
+    <section class="panel two-col">
+      <div>
+        <h2>2) Geographic Prioritization (Admin 2)</h2>
+        <p>
+          Map shows Admin-2 priority scores. Table provides rank, drivers, and proportional allocation of 5,000 emergency cash slots.
+        </p>
+        <div id="map" aria-label="Admin-2 prioritization map"></div>
+      </div>
+      <div>
+        <h3>Top 15 Recommended Admin-2 Areas</h3>
+        <div class="table-wrap table-wrap--tight">
+          <table id="topTable">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Admin 2</th>
+                <th>County</th>
+                <th>Score</th>
+                <th>Beneficiaries</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>3) Key Choices and Tradeoffs</h2>
+      <ul class="notes" id="tradeoffNotes"></ul>
+    </section>
+
+    <section class="panel">
+      <h2>Files Produced</h2>
+      <ul class="files">
+        <li><a href="data/admin2_priority_table.csv">data/admin2_priority_table.csv</a></li>
+        <li><a href="data/admin2_priority.geojson">data/admin2_priority.geojson</a></li>
+        <li><a href="data/index_components.csv">data/index_components.csv</a></li>
+        <li><a href="data/summary.json">data/summary.json</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Prepared for GiveDirectly Emergency Cash Team | Rapid targeting prototype for scenario planning.</p>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
